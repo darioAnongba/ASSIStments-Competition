@@ -41,11 +41,32 @@ keep_indices = list(set(range(72)) - set([4,11,13,14,15,16,17,18,27,56]))
 
 # In[48]:
 
+validation = {k:v for k, v in random.sample(train.items(), validation_set_size)}
+train_truncated = { k : train[k] for k in set(train) - set(validation) }
 
 class TrainingSet(Dataset):
     def __init__(self):
-        self.idx = list(train.keys())
-        self.sequences = train
+        self.idx = list(train_truncated.keys())
+        self.sequences = train_truncated
+        self.weights = [0.3 if x[2] == 0 else 0.8 for x in self.sequences.values()]
+        
+    def __len__(self):
+        return len(self.sequences)
+    
+    def __getitem__(self, id):
+        student_id = self.idx[id]
+        
+        actions = self.sequences[student_id][0].as_matrix().astype(np.float32)
+        fixed = self.sequences[student_id][1].as_matrix().astype(np.float32)
+        target = np.asarray([self.sequences[student_id][2]]).astype(np.float32)
+        fixed_rep = np.repeat(fixed[np.newaxis, ...], actions.shape[0], axis=0)
+        seq = np.hstack([fixed_rep, actions])
+        return student_id, seq[:,keep_indices], target
+
+class ValidationSet(Dataset):
+    def __init__(self):
+        self.idx = list(validation.keys())
+        self.sequences = validation
         self.weights = [0.3 if x[2] == 0 else 0.8 for x in self.sequences.values()]
         
     def __len__(self):
@@ -130,7 +151,8 @@ class RNN(nn.Module):
         self.optimizer = optim.Adamax(self.parameters(), lr=1e-3)
         
         sampler = WeightedRandomSampler(train_dataset.weights, num_samples=len(train_dataset))
-        loader = DataLoader(train_dataset, batch_size=1, num_workers=4, sampler=sampler)
+        #loader = DataLoader(train_dataset, batch_size=1, num_workers=4, sampler=sampler)
+	loader = DataLoader(train_dataset, batch_size=1, num:workers=8, shuffle=True)
         e_losses = []
         e_accs = []
         e_aucs = []
