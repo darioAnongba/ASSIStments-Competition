@@ -27,7 +27,6 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)
 torch.cuda.manual_seed_all(SEED)
-                                       
 
 # In[10]:
 
@@ -41,7 +40,7 @@ keep_indices = list(set(range(72)) - set([4,11,13,14,15,16,17,18,27,56]))
 
 # In[48]:
 
-validation = {k:v for k, v in random.sample(train.items(), validation_set_size)}
+validation = {k:v for k, v in random.sample(train.items(), 80)}
 train_truncated = { k : train[k] for k in set(train) - set(validation) }
 
 class TrainingSet(Dataset):
@@ -52,7 +51,7 @@ class TrainingSet(Dataset):
         
     def __len__(self):
         return len(self.sequences)
-    
+
     def __getitem__(self, id):
         student_id = self.idx[id]
         
@@ -143,7 +142,7 @@ class RNN(nn.Module):
         output = self.forward(inp)                                                                                                      
         loss = self.criterion(output, target.float())                                                                      
         loss.backward()                                                                                                                 
-        self.optimizer.step()                                                                                                           
+        self.optimizer.step()
         return loss.data[0], F.sigmoid(output)
     
     def fit(self, train_dataset):
