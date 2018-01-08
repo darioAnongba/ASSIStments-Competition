@@ -152,7 +152,7 @@ class RNN(nn.Module):
         
         sampler = WeightedRandomSampler(train_dataset.weights, num_samples=len(train_dataset))
         #loader = DataLoader(train_dataset, batch_size=1, num_workers=4, sampler=sampler)
-	loader = DataLoader(train_dataset, batch_size=1, num:workers=8, shuffle=True)
+        loader = DataLoader(train_dataset, batch_size=1, num_workers=8, shuffle=True)
         e_losses = []
         e_accs = []
         e_aucs = []
