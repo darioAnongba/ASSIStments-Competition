@@ -283,9 +283,9 @@ class RNN(nn.Module):
 # In[26]:
 
 
-model = RNN(input_dim=input_dim, hidden_dim=256, output_dim=1, n_layers=3, bi=True, use_gpu=False)
+model = RNN(input_dim=input_dim, hidden_dim=256, output_dim=1, n_layers=3, bi=True, use_gpu=True)
 #model.weights_init()
-#model.cuda()
+model.cuda()
 
 
 # In[27]:
