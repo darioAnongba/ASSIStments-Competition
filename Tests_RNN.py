@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import pickle
@@ -18,6 +18,7 @@ import pandas as pd
 from tqdm import tqdm, tqdm_notebook
 from sklearn.metrics import accuracy_score, roc_auc_score
 import matplotlib.pyplot as plt
+get_ipython().magic('matplotlib inline')
 import random
 
 DATA_DIR = 'Data/'
@@ -36,7 +37,7 @@ categorical_features = set(['SY ASSISTments Usage',
                         'problemType'])
 
 
-# In[ ]:
+# In[2]:
 
 
 pickle_train = open(DATA_DIR + "student_train_logs.pickle","rb")
@@ -47,24 +48,32 @@ train[9][0].head()
 
 # ### Parameters
 
-# In[ ]:
+# In[3]:
 
 
 input_dim = train[9][0].shape[1] + train[9][1].shape[1]
-input_dim
+validation_set_size = 80
 
 
-# In[ ]:
+# In[4]:
 
 
-class TrainingSet(Dataset):
-    def __init__(self):
-        self.idx = list(train.keys())
-        self.sequences = train
-        self.weights = [0.3 if x[2] == 0 else 0.8 for x in self.sequences.values()]
+validation = {k:v for k, v in random.sample(train.items(), validation_set_size)}
+train_truncated = { k : train[k] for k in set(train) - set(validation) }
+
+
+# In[15]:
+
+
+class DataSet(Dataset):
+    def __init__(self, sequences):
+        self.idx = list(sequences.keys())
+        self.sequences = sequences
+        #self.weights = [0.3 if x[2] == 0 else 0.8 for x in self.sequences.values()]
         
     def __len__(self):
-        return len(self.sequences)
+        return 5
+        #return len(self.sequences)
     
     def __getitem__(self, id):
         student_id = self.idx[id]
@@ -76,11 +85,15 @@ class TrainingSet(Dataset):
 
         return student_id, seq, target
 
-    
-train_dataset = TrainingSet()
+
+# In[16]:
 
 
-# In[ ]:
+train_dataset = DataSet(train_truncated)
+validation_dataset = DataSet(validation)
+
+
+# In[23]:
 
 
 class RNN(nn.Module):
@@ -103,7 +116,7 @@ class RNN(nn.Module):
         else:
             self.decoder = nn.Linear(hidden_dim, output_dim)
 
-        
+
     def weights_init(self):
         for name, param in self.named_parameters():
             if param.dim() >= 2:
@@ -121,7 +134,7 @@ class RNN(nn.Module):
             return Variable(torch.zeros(self.n_layers, batch_size, self.hidden_dim)).cuda()
         else:
             return Variable(torch.zeros(self.n_layers, batch_size, self.hidden_dim))
-        
+
     
     def forward(self, actions):
         batch_size = actions.size(1)
@@ -129,32 +142,95 @@ class RNN(nn.Module):
         out, _ = self.gru(actions, hidden_state)
         out = out[-1,:,:]                                                                                                         
         out = self.decoder(out)                                                                                                   
-        out = out.view(batch_size, self.output_dim)                                                                              
+        out = out.view(batch_size, self.output_dim)
+        
         return out
+    
     
     def step(self, inp, target):                                                                                                        
         self.zero_grad()                                                                                                           
         output = self.forward(inp)                                                                                                      
         loss = self.criterion(output, target.float())                                                                      
         loss.backward()                                                                                                                 
-        self.optimizer.step()                                                                                                           
+        self.optimizer.step()
+        
         return loss.data[0], F.sigmoid(output)
+    
+    
+    def evaluate_val(self, dataset):
+        loader = DataLoader(dataset, batch_size=1, num_workers=4)
+        
+        y_preds = []
+        y_true = []
+        
+        for i, (_, actions, target) in enumerate(tqdm_notebook(loader, leave=False)):
+            y_true.append(target.numpy()[0,0])
+            
+            actions = actions.permute(1, 0, 2)
+            
+            if self.use_gpu:
+                actions = Variable(actions).cuda()
+            else:
+                actions = Variable(actions)
+                
+            output = self.forward(actions)
+            output = F.sigmoid(output)
+            
+            if self.use_gpu:
+                y_preds.append(output.squeeze().cpu().data[0])
+            else:
+                y_preds.append(output.squeeze().data[0])
+                
+        return y_true, y_preds
+    
+    
+    def predict(self, test_set):
+        loader = DataLoader(test_set, batch_size=1, num_workers=4)
+        
+        preds = []
+        
+        for i, actions in enumerate(tqdm_notebook(loader, leave=False)):
+            actions = actions.permute(1, 0, 2)
+            
+            if self.use_gpu:
+                actions = Variable(actions).cuda()
+            else:
+                actions = Variable(actions)
+            
+            output = self.forward(actions)
+            output = F.sigmoid(output)
+            
+            if self.use_gpu:
+                preds.append(output.squeeze().cpu().data[0])
+            else:
+                preds.append(output.squeeze().data[0])
+                
+        return preds
+    
     
     def fit(self, train_dataset):
         self.criterion = nn.BCEWithLogitsLoss()
         self.optimizer = optim.Adamax(self.parameters(), lr=1e-3)
         
-        sampler = WeightedRandomSampler(train_dataset.weights, num_samples=len(train_dataset))
-        loader = DataLoader(train_dataset, batch_size=1, num_workers=4, sampler=sampler)
+        #sampler = WeightedRandomSampler(train_dataset.weights, num_samples=len(train_dataset))
+        loader = DataLoader(train_dataset, batch_size=1, num_workers=4, shuffle=True)
+        
         e_losses = []
         e_accs = []
         e_aucs = []
+        
+        e_val_accs = []
+        e_val_aucs = []
+
         e_bar = tqdm_notebook(range(10))
+        
         for e in e_bar:
             self.train()
             e_loss = 0
             preds = []
             targets = []
+            val_preds = []
+            
             for i, (_, seq, label) in enumerate(tqdm_notebook(loader, leave=False)):
                 seq = seq.permute(1,0,2)
                 
@@ -166,41 +242,54 @@ class RNN(nn.Module):
                     label_var =  Variable(label)
                 
                 loss, output = self.step(seq_var, label_var)
-                
                 e_loss += loss
+                
                 preds.append(output.squeeze().cpu().data[0])
                 targets.append(label.numpy()[0,0])
+            
             preds = np.array(preds)
             targets = np.array(targets)
             auc = roc_auc_score(targets, preds)
+            
             preds[preds >= 0.5] = 1
             preds[preds < 0.5] = 0
-            
             acc = accuracy_score(preds, targets)
+            
             e_losses.append(e_loss / (i+1))
             e_accs.append(acc)
             e_aucs.append(auc)
-            e_bar.set_postfix(acc=acc, e_loss=e_losses[-1], auc=auc)
+
+            # Validation set accuracy and AUC
+            val_acc = None
+            val_auc = None
+            if validation_dataset is not None:
+                val_targets, val_preds = self.evaluate_val(validation_dataset)
+                val_targets = np.array(val_targets)
+                val_preds = np.array(val_preds)
+                val_auc = roc_auc_score(val_targets, val_preds)
+
+                val_preds[val_preds >= 0.5] = 1
+                val_preds[val_preds < 0.5] = 0
+                val_acc = accuracy_score(val_preds, val_targets)
+
+                e_val_accs.append(val_acc)
+                e_val_aucs.append(val_auc)
             
-            
+            e_bar.set_postfix(acc=acc, e_loss=e_losses[-1], auc=auc, val_acc=val_acc, val_auc=val_auc)
+      
         return e_losses, e_accs, e_aucs
 
 
-# In[ ]:
+# In[26]:
 
 
-model = RNN(input_dim=input_dim, hidden_dim=256, output_dim=1, n_layers=3, bi=False, use_gpu=True)
-model.weights_init()
-model.cuda()
+model = RNN(input_dim=input_dim, hidden_dim=256, output_dim=1, n_layers=3, bi=True, use_gpu=False)
+#model.weights_init()
+#model.cuda()
 
 
-# In[ ]:
+# In[27]:
 
 
 e_losses, e_accs, e_aucs = model.fit(train_dataset)
-
-plt.plot(e_losses)
-plt.plot(e_accs)
-plt.plot(e_aucs)
-plt.show()
 
