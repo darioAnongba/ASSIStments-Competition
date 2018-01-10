@@ -29,8 +29,7 @@ torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)
 torch.cuda.manual_seed_all(SEED)
 
-categorical_features = set(['SY ASSISTments Usage',
-                        'skill',
+categorical_features = set(['skill',
                         'problemId',
                         'assignmentId',
                         'assistmentId',
@@ -72,8 +71,7 @@ class DataSet(Dataset):
         #self.weights = [0.3 if x[2] == 0 else 0.8 for x in self.sequences.values()]
         
     def __len__(self):
-        return 5
-        #return len(self.sequences)
+        return len(self.sequences)
     
     def __getitem__(self, id):
         student_id = self.idx[id]
@@ -163,7 +161,7 @@ class RNN(nn.Module):
         y_preds = []
         y_true = []
         
-        for i, (_, actions, target) in enumerate(tqdm_notebook(loader, leave=False)):
+        for i, (_, actions, target) in enumerate(tqdm(loader, leave=False)):
             y_true.append(target.numpy()[0,0])
             
             actions = actions.permute(1, 0, 2)
@@ -189,7 +187,7 @@ class RNN(nn.Module):
         
         preds = []
         
-        for i, actions in enumerate(tqdm_notebook(loader, leave=False)):
+        for i, actions in enumerate(tqdm(loader, leave=False)):
             actions = actions.permute(1, 0, 2)
             
             if self.use_gpu:
@@ -231,7 +229,7 @@ class RNN(nn.Module):
             targets = []
             val_preds = []
             
-            for i, (_, seq, label) in enumerate(tqdm_notebook(loader, leave=False)):
+            for i, (_, seq, label) in enumerate(tqdm(loader, leave=False)):
                 seq = seq.permute(1,0,2)
                 
                 if self.use_gpu:
@@ -277,7 +275,7 @@ class RNN(nn.Module):
             
             e_bar.set_postfix(acc=acc, e_loss=e_losses[-1], auc=auc, val_acc=val_acc, val_auc=val_auc)
       
-        return e_losses, e_accs, e_aucs
+        return e_losses, e_accs, e_aucs, e_val_accs, e_val_aucs
 
 
 # In[ ]:
@@ -291,5 +289,5 @@ model.cuda()
 # In[ ]:
 
 
-e_losses, e_accs, e_aucs = model.fit(train_dataset)
+e_losses, e_accs, e_aucs, e_val_accs, e_val_aucs = model.fit(train_dataset)
 
