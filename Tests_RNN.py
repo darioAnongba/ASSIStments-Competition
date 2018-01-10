@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import pickle
@@ -18,7 +18,7 @@ import pandas as pd
 from tqdm import tqdm, tqdm_notebook
 from sklearn.metrics import accuracy_score, roc_auc_score
 import matplotlib.pyplot as plt
-get_ipython().magic('matplotlib inline')
+#%matplotlib inline
 import random
 
 DATA_DIR = 'Data/'
@@ -37,7 +37,7 @@ categorical_features = set(['SY ASSISTments Usage',
                         'problemType'])
 
 
-# In[2]:
+# In[ ]:
 
 
 pickle_train = open(DATA_DIR + "student_train_logs.pickle","rb")
@@ -48,21 +48,21 @@ train[9][0].head()
 
 # ### Parameters
 
-# In[3]:
+# In[ ]:
 
 
 input_dim = train[9][0].shape[1] + train[9][1].shape[1]
 validation_set_size = 80
 
 
-# In[4]:
+# In[ ]:
 
 
 validation = {k:v for k, v in random.sample(train.items(), validation_set_size)}
 train_truncated = { k : train[k] for k in set(train) - set(validation) }
 
 
-# In[15]:
+# In[ ]:
 
 
 class DataSet(Dataset):
@@ -86,14 +86,14 @@ class DataSet(Dataset):
         return student_id, seq, target
 
 
-# In[16]:
+# In[ ]:
 
 
 train_dataset = DataSet(train_truncated)
 validation_dataset = DataSet(validation)
 
 
-# In[23]:
+# In[ ]:
 
 
 class RNN(nn.Module):
@@ -280,7 +280,7 @@ class RNN(nn.Module):
         return e_losses, e_accs, e_aucs
 
 
-# In[26]:
+# In[ ]:
 
 
 model = RNN(input_dim=input_dim, hidden_dim=256, output_dim=1, n_layers=3, bi=True, use_gpu=True)
@@ -288,7 +288,7 @@ model = RNN(input_dim=input_dim, hidden_dim=256, output_dim=1, n_layers=3, bi=Tr
 model.cuda()
 
 
-# In[27]:
+# In[ ]:
 
 
 e_losses, e_accs, e_aucs = model.fit(train_dataset)
