@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[18]:
 
 
 import pickle
@@ -18,7 +18,7 @@ import pandas as pd
 from tqdm import tqdm, tqdm_notebook
 from sklearn.metrics import accuracy_score, roc_auc_score
 import matplotlib.pyplot as plt
-#%matplotlib inline
+get_ipython().magic('matplotlib inline')
 import random
 
 DATA_DIR = 'Data/'
@@ -36,7 +36,7 @@ categorical_features = set(['skill',
                         'problemType'])
 
 
-# In[2]:
+# In[19]:
 
 
 pickle_train = open(DATA_DIR + "student_train_logs.pickle","rb")
@@ -208,7 +208,7 @@ class RNN(nn.Module):
     
     def fit(self, train_dataset):
         self.criterion = nn.BCEWithLogitsLoss()
-        self.optimizer = optim.Adamax(self.parameters(), lr=1e-2)
+        self.optimizer = optim.Adamax(self.parameters(), lr=1e-3)
         
         sampler = WeightedRandomSampler(train_dataset.weights, num_samples=len(train_dataset))
         loader = DataLoader(train_dataset, batch_size=1, num_workers=4, shuffle=True)
@@ -220,7 +220,7 @@ class RNN(nn.Module):
         e_val_accs = []
         e_val_aucs = []
 
-        e_bar = tqdm_notebook(range(10))
+        e_bar = tqdm(range(20))
         
         for e in e_bar:
             self.train()
@@ -282,7 +282,7 @@ class RNN(nn.Module):
 
 
 model = RNN(input_dim=input_dim, hidden_dim=256, output_dim=1, n_layers=3, bi=True, use_gpu=True)
-model.weights_init()
+#model.weights_init()
 model.cuda()
 
 
@@ -290,4 +290,14 @@ model.cuda()
 
 
 e_losses, e_accs, e_aucs, e_val_accs, e_val_aucs = model.fit(train_dataset)
+
+
+# In[ ]:
+
+
+print('Accuracies')
+print(e_accs, e_val_accs)
+
+print('ROC AUC')
+print(e_aucs, e_val_aucs)
 
