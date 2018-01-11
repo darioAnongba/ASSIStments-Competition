@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import pickle
@@ -36,7 +36,7 @@ categorical_features = set(['skill',
                         'problemType'])
 
 
-# In[ ]:
+# In[2]:
 
 
 pickle_train = open(DATA_DIR + "student_train_logs.pickle","rb")
@@ -51,7 +51,7 @@ train[9][0].head()
 
 
 input_dim = train[9][0].shape[1] + train[9][1].shape[1]
-validation_set_size = 80
+validation_set_size = 30
 
 
 # In[ ]:
@@ -68,7 +68,7 @@ class DataSet(Dataset):
     def __init__(self, sequences):
         self.idx = list(sequences.keys())
         self.sequences = sequences
-        #self.weights = [0.3 if x[2] == 0 else 0.8 for x in self.sequences.values()]
+        self.weights = [0.3 if x[2] == 0 else 0.8 for x in self.sequences.values()]
         
     def __len__(self):
         return len(self.sequences)
@@ -107,7 +107,7 @@ class RNN(nn.Module):
         self.gru = nn.GRU(input_size=input_dim,
                           hidden_size=hidden_dim,
                           num_layers=n_layers,
-                          dropout=0.25,
+                          dropout=0.1,
                           bidirectional=bi)
         if bi:
             self.decoder = nn.Linear(hidden_dim*2, output_dim)
@@ -208,9 +208,9 @@ class RNN(nn.Module):
     
     def fit(self, train_dataset):
         self.criterion = nn.BCEWithLogitsLoss()
-        self.optimizer = optim.Adamax(self.parameters(), lr=1e-3)
+        self.optimizer = optim.Adamax(self.parameters(), lr=1e-2)
         
-        #sampler = WeightedRandomSampler(train_dataset.weights, num_samples=len(train_dataset))
+        sampler = WeightedRandomSampler(train_dataset.weights, num_samples=len(train_dataset))
         loader = DataLoader(train_dataset, batch_size=1, num_workers=4, shuffle=True)
         
         e_losses = []
@@ -282,7 +282,7 @@ class RNN(nn.Module):
 
 
 model = RNN(input_dim=input_dim, hidden_dim=256, output_dim=1, n_layers=3, bi=True, use_gpu=True)
-#model.weights_init()
+model.weights_init()
 model.cuda()
 
 
