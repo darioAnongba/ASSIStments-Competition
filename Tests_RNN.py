@@ -16,8 +16,6 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm, tqdm_notebook
 from sklearn.metrics import accuracy_score, roc_auc_score
-import matplotlib.pyplot as plt
-get_ipython().magic('matplotlib inline')
 import random
 
 DATA_DIR = 'Data/'
@@ -189,7 +187,7 @@ class RNN(nn.Module):
         self.criterion = nn.BCEWithLogitsLoss()
         self.optimizer = optim.Adamax(self.parameters(), lr=learning_rate)
         
-        loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+        loader = DataLoader(train_dataset, batch_size=self.batch_size, num_workers=num_workers, shuffle=True)
         
         e_losses = []
         e_accs = []
@@ -257,7 +255,7 @@ class RNN(nn.Module):
         return e_losses, e_accs, e_aucs, e_val_accs, e_val_aucs
 
 
-# In[1]:
+# In[ ]:
 
 
 model = RNN(input_dim=input_dim,
@@ -266,7 +264,10 @@ model = RNN(input_dim=input_dim,
             n_layers=n_layers,
             bi=bidirectional,
             use_gpu=use_gpu)
-model.cuda()
+
+if use_gpu:
+    model.cuda()
+    
 model
 
 
