@@ -46,8 +46,6 @@ categorical_features = set(['skill',
 pickle_train = open(DATA_DIR + "student_train_logs.pickle","rb")
 train = pickle.load(pickle_train)
 
-train[9][0].head()
-
 # ### Parameters
 # 
 # Here we define the parameters of the whole system, each parameter can be tweaked as needed:
