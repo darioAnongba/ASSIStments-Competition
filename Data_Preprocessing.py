@@ -9,9 +9,6 @@
 
 # ## Imports
 
-# In[1]:
-
-
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
@@ -19,12 +16,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
-
-# In[2]:
-
-
 DATA_DIR = 'Data/'
-
 
 # ## Loading the data
 
@@ -36,9 +28,6 @@ DATA_DIR = 'Data/'
 # - **Binary**: Values representing booleans. These values can be used without *transformation*. Ex: `correct`
 # 
 # In addition, some values are discarded because of missing values, non-usefulness (their information is already contained in another feature) or uniqueness (`actionId` is different for each action so there is no information to extract from that feature).
-
-# In[3]:
-
 
 column_names = set(['AveCarelessness', 'AveCorrect', 'AveKnow', 'AveResBored', 'AveResConf',
        'AveResEngcon', 'AveResFrust', 'AveResGaming', 'AveResOfftask',
@@ -107,9 +96,6 @@ columns_not_keep = set([
 columns_keep = column_names - columns_not_keep
 
 
-# In[4]:
-
-
 student_logs = pd.concat([
     pd.read_csv(DATA_DIR + 'student_log_' + str(i) + '.csv', usecols=columns_keep) for i in range(1, 11)
 ], ignore_index=True)
@@ -121,13 +107,8 @@ student_logs.head()
 # 
 # We remove actions containing NA values (normally, there shouldn't be any)
 
-# In[5]:
-
-
-print(student_logs.isnull().any().any())
 student_logs = student_logs.fillna(0)
-print(student_logs.isnull().any().any())
-
+print('NA values removed')
 
 # ## Scaling numerical features
 # 
@@ -137,15 +118,10 @@ print(student_logs.isnull().any().any())
 # 
 # After testing with both methods, we chose a MaxMinScaler with range [-1, 1]
 
-# In[6]:
-
-
 #scaler = MinMaxScaler((-1, 1))
 scaler = StandardScaler()
 numerical_features = list(numerical_features)
 student_logs[numerical_features] = scaler.fit_transform(student_logs[numerical_features])
-student_logs.head()
-
 
 # ## Encoding categorical features
 # 
@@ -154,9 +130,6 @@ student_logs.head()
 # - **Categories**: Strings used to state that an action is part of a given category, like the skill being tested (`skill`)
 # 
 # With both types the problem of label encoding is the same as we need to transform the values into integers spanning from 0 to the amount of different categories for that feature.
-
-# In[7]:
-
 
 class MultiColumnLabelEncoder:
     def __init__(self,columns = None):
@@ -184,27 +157,13 @@ class MultiColumnLabelEncoder:
         return self.fit(X,y).transform(X)
 
 
-# In[8]:
-
-
 student_logs_categorical = MultiColumnLabelEncoder(columns = categorical_features).fit_transform(student_logs)
-student_logs_categorical.head()
-
-
-# In[9]:
-
-
-student_logs_categorical['skill'].sort_values().unique()
-
 
 # ## Creating embeddings for categorical features
 # 
 # Now that each category has been encoded into an integer index, we can apply vector embeddings methods to transform each value into a X dimensional vector. We chose vectors of size 3.
 # 
 # We also need to drop the "old" column containing the indexes and only keep the new embedding features
-
-# In[10]:
-
 
 dim_embeddings = 3
 
@@ -224,42 +183,23 @@ for column in categorical_features:
     student_logs_categorical = pd.concat([student_logs_categorical, df], axis=1)
 
 student_logs_categorical.drop(categorical_features, axis=1, inplace=True)
-student_logs_categorical.head()
-
 
 # ## Keeping only students for whom we have labels
 # 
 # Some students do not have any labels assigned so they are useless for supervised learning
 
-# In[11]:
-
-
 train_labels = pd.read_csv('Data/training_label.csv', index_col='ITEST_id', na_values=-999).sort_index()
 train_labels.drop_duplicates(subset=None, keep='first', inplace=True)
 
 train_labels = train_labels.fillna(train_labels['MCAS'].median())
-train_labels.head()
-
-
-# In[12]:
-
 
 test_labels = pd.read_csv(DATA_DIR + 'validation_test_label.csv', index_col='ITEST_id', na_values=-999).sort_index()
 test_labels = test_labels.fillna(train_labels['MCAS'].median())
-test_labels.head()
-
 
 # We only keep actions for students for which we have labels in train_labels and test_labels. We also sort by student ID and by startTime of in order to have a chronological suite of actions
 
-# In[13]:
-
-
 student_logs_categorical = student_logs_categorical.sort_values(by=['ITEST_id', 'startTime'])
 del student_logs_categorical['startTime']
-
-
-# In[14]:
-
 
 train_idx = train_labels.index.values
 test_idx = test_labels.index.values
@@ -269,19 +209,8 @@ student_test_logs = student_logs_categorical[student_logs_categorical['ITEST_id'
 print('Training data shape:', student_train_logs.shape)
 print('Test data shape:', student_test_logs.shape)
 
-
-# In[15]:
-
-
 print('Number of students train:', student_train_logs.ITEST_id.unique().shape)
 print('Number of students test:', student_test_logs.ITEST_id.unique().shape)
-
-
-# In[16]:
-
-
-student_train_logs.head()
-
 
 # ## Creating a dictionary of sequences 
 # 
@@ -289,9 +218,6 @@ student_train_logs.head()
 # - **Sequence of dynamic features**: Features that are different for every student action. The result is a pandas dataframe.
 # - **Sequence of static features**: Features that stay the same for every action of a student (averages, school id and MCAS). The result is a Pandas Series.
 # - **label**: If yes or no the student has chosen a STEM career. The result is a boolean (0 or 1).
-
-# In[17]:
-
 
 fixed_features = ['NumActions',
                   'AveKnow',
@@ -325,20 +251,9 @@ def create_dict(idx, labels, is_train=True):
 dict_train = create_dict(train_idx, train_labels)
 dict_test = create_dict(test_idx, test_labels, False)
 
-
-# In[18]:
-
-
-print(len(dict_train))
-print(len(dict_test))
-
-
 # ## Saving data in pickles
 
 # Finally we save the data into pickles to use them later.
-
-# In[19]:
-
 
 import pickle
 
@@ -347,10 +262,7 @@ def save_pickle(dict_data, name):
     pickle.dump(dict_data, pickle_out)
     pickle_out.close()
 
-
-# In[20]:
-
-
 save_pickle(dict_train, 'student_train_logs')
 save_pickle(dict_test, 'student_test_logs')
 
+print('Data successfully saved into pickles')
