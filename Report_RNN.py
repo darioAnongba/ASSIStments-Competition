@@ -18,6 +18,7 @@ import pandas as pd
 from tqdm import tqdm, tqdm_notebook
 from sklearn.metrics import accuracy_score, roc_auc_score
 import random
+import pickle
 
 DATA_DIR = 'Data/'
 RESULTS_DIR = 'Results/'
@@ -34,6 +35,10 @@ categorical_features = set(['skill',
                         'assistmentId',
                         'problemType'])
 
+def save_pickle(dict_data, name):
+    pickle_out = open(RESULTS_DIR + name + '.pickle', 'wb')
+    pickle.dump(dict_data, pickle_out)
+    pickle_out.close()
 
 # ## Loading the training data
 # 
@@ -299,48 +304,45 @@ class RNN(nn.Module):
 
 # In order to train our RNN, we use our previously defined DataLoader and try to minimize error. The optimization function chosen is **Adamax** and the loss function is **Binary Cross-Entropy with Logits**.
 
-# ### Defining parameters
-
-model = RNN(input_dim=parameters['dynamic_dim'],
-            hidden_dim=parameters['hidden_dim'],
-            fixed_dim=parameters['fixed_dim'],
-            n_layers=parameters['n_layers'],
-            bi=parameters['bidirectional'],
-            use_gpu=parameters['use_gpu'],
-            dropout=parameters['dropout'],
-            lr=parameters['learning_rate'])
-
-if parameters['use_gpu']:
-    model.cuda()
+for layers in [2, 3, 4]:
+    parameters['n_layers'] = layers
     
+    for h_dim in [16, 32, 64, 128 256, 512]:
+        parameters['hidden_dim'] = h_dim
+        
+        model = RNN(input_dim=parameters['dynamic_dim'],
+                    hidden_dim=parameters['hidden_dim'],
+                    fixed_dim=parameters['fixed_dim'],
+                    n_layers=parameters['n_layers'],
+                    bi=parameters['bidirectional'],
+                    use_gpu=parameters['use_gpu'],
+                    dropout=parameters['dropout'],
+                    lr=parameters['learning_rate'])
 
-e_losses, e_accs, e_aucs, e_val_accs, e_val_aucs = model.fit(train_dataset)
+        if parameters['use_gpu']:
+            model.cuda()
+        
+        e_losses, e_accs, e_aucs, e_val_accs, e_val_aucs = model.fit(train_dataset)
 
-# ## Storing results in pickles
-# 
-# The results are stored in a dictionary with the following entries:
-# - **parameters**: A dictionary of parameters for the given result
-# - **losses**: The losses over time
-# - **accs**: Accuracies over time for the training set
-# - **aucs**: ROC AUC over time for the training set
-# - **val_accs**: Accuracies over time for the validation set
-# - **aucs**: ROC AUC over time for the validation set
-
-import pickle
-
-def save_pickle(dict_data, name):
-    pickle_out = open(RESULTS_DIR + name + '.pickle', 'wb')
-    pickle.dump(dict_data, pickle_out)
-    pickle_out.close()
+        # ## Storing results in pickles
+        # 
+        # The results are stored in a dictionary with the following entries:
+        # - **parameters**: A dictionary of parameters for the given result
+        # - **losses**: The losses over time
+        # - **accs**: Accuracies over time for the training set
+        # - **aucs**: ROC AUC over time for the training set
+        # - **val_accs**: Accuracies over time for the validation set
+        # - **aucs**: ROC AUC over time for the validation set
     
-data_to_store = {
-    'parameters': parameters,
-    'losses': e_losses,
-    'accs': e_accs,
-    'aucs': e_aucs,
-    'val_accs': e_val_accs,
-    'val_aucs': e_val_aucs
-}
-
-save_pickle(data_to_store, 'results_' + str(parameters['hidden_dim']) + '_' + str(parameters['n_layers']))
-print('Data stored')
+        data_to_store = {
+            'parameters': parameters,
+            'losses': e_losses,
+            'accs': e_accs,
+            'aucs': e_aucs,
+            'val_accs': e_val_accs,
+            'val_aucs': e_val_aucs
+        }
+        
+        pickle_name = 'results_' + str(h_dim) + '_' + str(layers)
+        save_pickle(data_to_store, pickle_name)
+        print('File stored: ' + pickle_name + '.pickle')
