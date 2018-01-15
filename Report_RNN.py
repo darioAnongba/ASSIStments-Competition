@@ -5,9 +5,6 @@
 
 # ## Imports and constants
 
-# In[ ]:
-
-
 import pickle
 import torch
 import torch.nn as nn
@@ -46,14 +43,8 @@ categorical_features = set(['skill',
 # - **Fixed features**: Features that are unchanged through time. Ex: Average correctness, the school id or MCAS grade. Stored as a pandas Series.
 # - **target**: Either yes (1) or no (0) the student has chosen a carrer in STEM.
 
-# In[ ]:
-
-
 pickle_train = open(DATA_DIR + "student_train_logs.pickle","rb")
 train = pickle.load(pickle_train)
-
-train[9][0].head()
-
 
 # ### Parameters
 # 
@@ -74,9 +65,6 @@ train[9][0].head()
 # - **dropout** (float in [0, 1]): Dropout of the RNN
 # - **learning_rate** (float in [0, 1]): Learning rate
 
-# In[ ]:
-
-
 parameters = {
     'validation_set_size': 30,
     'dynamic_dim': train[9][0].shape[1],
@@ -96,12 +84,8 @@ parameters = {
 # 
 # We create the validation set by randomly selecting `validation_set_size` students from the total training set and discarding those students from the actual training set.
 
-# In[ ]:
-
-
 validation = {k:v for k, v in random.sample(train.items(), parameters['validation_set_size'])}
 train_truncated = { k : train[k] for k in set(train) - set(validation) }
-
 
 # ## Creating a Data Loader
 # 
@@ -110,9 +94,6 @@ train_truncated = { k : train[k] for k in set(train) - set(validation) }
 # With PyTorch, every DataLoader can be set a sampler that will define how the data is being sampled.
 # Here we do not define any sampler but it could be a good idea to create a random weighted sampler in order to balance.
 
-# In[ ]:
-
-
 class DataSet(Dataset):
     def __init__(self, sequences):
         self.idx = list(sequences.keys())
@@ -120,8 +101,7 @@ class DataSet(Dataset):
     
     
     def __len__(self):
-        return 2
-        #return len(self.sequences)
+        return len(self.sequences)
     
     
     def __getitem__(self, id):
@@ -132,9 +112,6 @@ class DataSet(Dataset):
         target = np.asarray([self.sequences[student_id][2]]).astype(np.float32)
 
         return student_id, dynamic, fixed, target
-
-
-# In[ ]:
 
 
 train_dataset = DataSet(train_truncated)
@@ -152,9 +129,6 @@ validation_dataset = DataSet(validation)
 # - **step**: A step in the training process.
 # - **evaluate_val**: Validation set results on the current model.
 # - **fit**: Complete training process.
-
-# In[ ]:
-
 
 class RNN(nn.Module):
     def __init__(self,
@@ -226,7 +200,7 @@ class RNN(nn.Module):
         y_preds = []
         y_true = []
         
-        for i, (_, actions, fixed, target) in enumerate(tqdm_notebook(loader, leave=False)):
+        for i, (_, actions, fixed, target) in enumerate(tqdm(loader, leave=False)):
             y_true.append(target.float())
             
             actions = actions.permute(1, 0, 2)
@@ -262,7 +236,7 @@ class RNN(nn.Module):
         e_val_accs = []
         e_val_aucs = []
         
-        e_bar = tqdm_notebook(range(parameters['epochs']))
+        e_bar = tqdm(range(parameters['epochs']))
         for e in e_bar:
             self.train()
             e_loss = 0
@@ -270,7 +244,7 @@ class RNN(nn.Module):
             targets = []
             val_preds = []
             
-            for i, (_, seq, fixed, label) in enumerate(tqdm_notebook(loader, leave=False)):
+            for i, (_, seq, fixed, label) in enumerate(tqdm(loader, leave=False)):
                 seq = seq.permute(1,0,2)
                 
                 if self.use_gpu:
@@ -327,9 +301,6 @@ class RNN(nn.Module):
 
 # ### Defining parameters
 
-# In[ ]:
-
-
 model = RNN(input_dim=parameters['dynamic_dim'],
             hidden_dim=parameters['hidden_dim'],
             fixed_dim=parameters['fixed_dim'],
@@ -342,14 +313,8 @@ model = RNN(input_dim=parameters['dynamic_dim'],
 if parameters['use_gpu']:
     model.cuda()
     
-model
-
-
-# In[ ]:
-
 
 e_losses, e_accs, e_aucs, e_val_accs, e_val_aucs = model.fit(train_dataset)
-
 
 # ## Storing results in pickles
 # 
@@ -360,9 +325,6 @@ e_losses, e_accs, e_aucs, e_val_accs, e_val_aucs = model.fit(train_dataset)
 # - **aucs**: ROC AUC over time for the training set
 # - **val_accs**: Accuracies over time for the validation set
 # - **aucs**: ROC AUC over time for the validation set
-
-# In[ ]:
-
 
 import pickle
 
@@ -381,4 +343,4 @@ data_to_store = {
 }
 
 save_pickle(data_to_store, 'results_' + str(parameters['hidden_dim']) + '_' + str(parameters['n_layers']))
-
+print('Data stored')
