@@ -303,7 +303,7 @@ class RNN(nn.Module):
 
 # In order to train our RNN, we use our previously defined DataLoader and try to minimize error. The optimization function chosen is **Adamax** and the loss function is **Binary Cross-Entropy with Logits**.
 
-for layers in [2, 3, 4]:
+for layers in [3]:
     parameters['n_layers'] = layers
     
     for h_dim in [16, 32, 64, 128, 256, 512]:
