@@ -1,4 +1,3 @@
-
 # coding: utf-8
 
 # # ASSISTments Data Mining Competition 2017 - Report of RNN Model
@@ -60,7 +59,7 @@ train = pickle.load(pickle_train)
 # - **use_gpu** (bool): Use CUDA or not
 # - **num_workers** (int): Maximum number of threads on the CPU.
 # - **epochs** (int): Number of epochs
-# 
+#
 # ** Model (RNN) parameters**
 # - **dynamic_dim** (int): Number of dynamic features (that change at every action)
 # - **fixed_dim** (int): Number of the static features (that are unchanged at every action)
@@ -76,17 +75,17 @@ parameters = {
     'fixed_dim': train[9][1].shape[0],
     'hidden_dim': 256,
     'dropout': 0.25,
-    'n_layers': 3, 
+    'n_layers': 3,
     'bidirectional': True,
     'use_gpu': True,
     'learning_rate': 1e-3,
-    'epochs': 20,
+    'epochs': 30,
     'num_workers': 4
 }
 
 
 # ## Creating the validation set
-# 
+#
 # We create the validation set by randomly selecting `validation_set_size` students from the total training set and discarding those students from the actual training set.
 
 validation = {k:v for k, v in random.sample(train.items(), parameters['validation_set_size'])}
@@ -307,7 +306,7 @@ class RNN(nn.Module):
 for layers in [2, 3, 4]:
     parameters['n_layers'] = layers
     
-    for h_dim in [16, 32, 64, 128 256, 512]:
+    for h_dim in [16, 32, 64, 128, 256, 512]:
         parameters['hidden_dim'] = h_dim
         
         model = RNN(input_dim=parameters['dynamic_dim'],
@@ -322,6 +321,8 @@ for layers in [2, 3, 4]:
         if parameters['use_gpu']:
             model.cuda()
         
+        print('Running with parameters:')
+        print(parameters)
         e_losses, e_accs, e_aucs, e_val_accs, e_val_aucs = model.fit(train_dataset)
 
         # ## Storing results in pickles
