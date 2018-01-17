@@ -88,13 +88,13 @@ parameters = {
     'dynamic_dim': train[9][0].shape[1],
     'fixed_dim': train[9][1].shape[0],
     'hidden_dim': 32,
-    'dropout': 0.25,
-    'n_layers': 2, 
-    'bidirectional': False,
-    'use_gpu': False,
+    'dropout': 0.1,
+    'n_layers': 3, 
+    'bidirectional': True,
+    'use_gpu': True,
     'learning_rate': 1e-3,
-    'epochs': 30,
-    'num_workers': 4
+    'epochs': 40,
+    'num_workers': 8
 }
 
 
@@ -219,7 +219,7 @@ class RNN(nn.Module):
         self.zero_grad()                                                                                                           
         output = self.forward(dynamic, fixed)                                                                                                      
         loss = self.criterion(output, target.float())                                                                      
-        loss.backward()                                                                                                                 
+        loss.backward()
         self.optimizer.step()
         
         return loss.data[0], F.sigmoid(output)
@@ -232,7 +232,7 @@ class RNN(nn.Module):
         y_true = []
         
         self.eval()
-        for i, (_, actions, fixed, target) in enumerate(tqdm_notebook(loader, leave=False)):
+        for i, (_, actions, fixed, target) in enumerate(tqdm(loader, leave=False)):
             y_true.append(target.float())
             
             actions = actions.permute(1, 0, 2)
@@ -270,7 +270,7 @@ class RNN(nn.Module):
         e_val_aucs = []
         e_val_mse = []
         
-        e_bar = tqdm_notebook(range(parameters['epochs']))
+        e_bar = tqdm(range(parameters['epochs']))
         for e in e_bar:
             self.train()
             e_loss = 0
@@ -278,7 +278,7 @@ class RNN(nn.Module):
             targets = []
             val_preds = []
             
-            for i, (_, seq, fixed, label) in enumerate(tqdm_notebook(loader, leave=False)):
+            for i, (_, seq, fixed, label) in enumerate(tqdm(loader, leave=False)):
                 seq = seq.permute(1,0,2)
                 
                 if self.use_gpu:
@@ -393,4 +393,3 @@ data_to_store = {
 }
 
 save_pickle(data_to_store, 'results_' + str(parameters['hidden_dim']) + '_' + str(parameters['n_layers']))
-
