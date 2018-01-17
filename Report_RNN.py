@@ -323,19 +323,19 @@ for layers in [3]:
     for h_dim in [20, 24, 28, 32, 36, 40, 44]:
         parameters['hidden_dim'] = h_dim
 
-            for dropout in [0, 0.1, 0.2]:
-                parameters['dropout'] = dropout
-        
-                model = RNN(input_dim=parameters['dynamic_dim'],
-                            hidden_dim=parameters['hidden_dim'],
-                            fixed_dim=parameters['fixed_dim'],
-                            n_layers=parameters['n_layers'],
-                            bi=parameters['bidirectional'],
-                            use_gpu=parameters['use_gpu'],
-                            dropout=parameters['dropout'])
+        for dropout in [0, 0.1, 0.2]:
+            parameters['dropout'] = dropout
 
-                if parameters['use_gpu']:
-                    model.cuda()
+            model = RNN(input_dim=parameters['dynamic_dim'],
+                        hidden_dim=parameters['hidden_dim'],
+                        fixed_dim=parameters['fixed_dim'],
+                        n_layers=parameters['n_layers'],
+                        bi=parameters['bidirectional'],
+                        use_gpu=parameters['use_gpu'],
+                        dropout=parameters['dropout'])
+
+            if parameters['use_gpu']:
+                model.cuda()
 
                 print('Running with parameters:')
                 print(parameters)
@@ -352,7 +352,7 @@ for layers in [3]:
                 # - **val_accs**: Accuracies over time for the validation set
                 # - **val_aucs**: ROC AUC over time for the validation set
                 # - **val_mse**: Mean Squared error over time for the validation set
-                
+
                 data_to_store = {
                     'parameters': parameters,
                     'losses': e_losses,
