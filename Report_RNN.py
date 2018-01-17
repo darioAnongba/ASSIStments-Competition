@@ -192,7 +192,7 @@ class RNN(nn.Module):
         self.zero_grad()                                                                                                           
         output = self.forward(dynamic, fixed)                                                                                                      
         loss = self.criterion(output, target.float())                                                                      
-        loss.backward()                                                                                                                 
+        loss.backward()
         self.optimizer.step()
         
         return loss.data[0], F.sigmoid(output)
@@ -204,6 +204,7 @@ class RNN(nn.Module):
         y_preds = []
         y_true = []
         
+        self.eval()
         for i, (_, actions, fixed, target) in enumerate(tqdm(loader, leave=False)):
             y_true.append(target.float())
             
@@ -236,9 +237,11 @@ class RNN(nn.Module):
         e_losses = []
         e_accs = []
         e_aucs = []
-        
+        e_mse = []
+
         e_val_accs = []
         e_val_aucs = []
+        e_val_mse = []
         
         e_bar = tqdm(range(parameters['epochs']))
         for e in e_bar:
@@ -269,6 +272,7 @@ class RNN(nn.Module):
             preds = np.array(preds)
             targets = np.array(targets)
             auc = roc_auc_score(targets, preds)
+            mse = mean_squared_error(targets, preds)
             
             preds[preds >= 0.5] = 1
             preds[preds < 0.5] = 0
@@ -277,15 +281,18 @@ class RNN(nn.Module):
             e_losses.append(e_loss / (i+1))
             e_accs.append(acc)
             e_aucs.append(auc)
+            e_mse.append(mse)
 
-            # Validation set accuracy and AUC
+            # Validation set accuracy, AUC and RMSE
             val_acc = None
             val_auc = None
+            val_mse = None
             if validation_dataset is not None:
                 val_targets, val_preds = self.evaluate_val(validation_dataset)
                 val_targets = np.array(val_targets)
                 val_preds = np.array(val_preds)
                 val_auc = roc_auc_score(val_targets, val_preds)
+                val_mse = mean_squared_error(val_targets, val_preds)
 
                 val_preds[val_preds >= 0.5] = 1
                 val_preds[val_preds < 0.5] = 0
@@ -293,10 +300,17 @@ class RNN(nn.Module):
 
                 e_val_accs.append(val_acc)
                 e_val_aucs.append(val_auc)
+                e_val_mse.append(val_mse)
             
-            e_bar.set_postfix(acc=acc, e_loss=e_losses[-1], auc=auc, val_acc=val_acc, val_auc=val_auc)
+            e_bar.set_postfix(acc=acc,
+                              e_loss=e_losses[-1],
+                              auc=auc,
+                              mse=mse,
+                              val_acc=val_acc,
+                              val_auc=val_auc,
+                              val_mse=val_mse)
       
-        return e_losses, e_accs, e_aucs, e_val_accs, e_val_aucs
+        return e_losses, e_accs, e_aucs, e_mse, e_val_accs, e_val_aucs, e_val_mse
 
 
 # ## Training the network
@@ -306,45 +320,51 @@ class RNN(nn.Module):
 for layers in [3]:
     parameters['n_layers'] = layers
     
-    for h_dim in [512]:
+    for h_dim in [20, 24, 28, 32, 36, 40, 44]:
         parameters['hidden_dim'] = h_dim
-        
-        model = RNN(input_dim=parameters['dynamic_dim'],
-                    hidden_dim=parameters['hidden_dim'],
-                    fixed_dim=parameters['fixed_dim'],
-                    n_layers=parameters['n_layers'],
-                    bi=parameters['bidirectional'],
-                    use_gpu=parameters['use_gpu'],
-                    dropout=parameters['dropout'],
-                    lr=parameters['learning_rate'])
 
-        if parameters['use_gpu']:
-            model.cuda()
+            for dropout in [0, 0.1, 0.2]:
+                parameters['dropout'] = dropout
         
-        print('Running with parameters:')
-        print(parameters)
-        e_losses, e_accs, e_aucs, e_val_accs, e_val_aucs = model.fit(train_dataset)
+                model = RNN(input_dim=parameters['dynamic_dim'],
+                            hidden_dim=parameters['hidden_dim'],
+                            fixed_dim=parameters['fixed_dim'],
+                            n_layers=parameters['n_layers'],
+                            bi=parameters['bidirectional'],
+                            use_gpu=parameters['use_gpu'],
+                            dropout=parameters['dropout'])
 
-        # ## Storing results in pickles
-        # 
-        # The results are stored in a dictionary with the following entries:
-        # - **parameters**: A dictionary of parameters for the given result
-        # - **losses**: The losses over time
-        # - **accs**: Accuracies over time for the training set
-        # - **aucs**: ROC AUC over time for the training set
-        # - **val_accs**: Accuracies over time for the validation set
-        # - **aucs**: ROC AUC over time for the validation set
-    
-        data_to_store = {
-            'parameters': parameters,
-            'losses': e_losses,
-            'accs': e_accs,
-            'aucs': e_aucs,
-            'val_accs': e_val_accs,
-            'val_aucs': e_val_aucs
-        }
-        
-        pickle_name = 'results_' + str(h_dim) + '_' + str(layers)
-        save_pickle(data_to_store, pickle_name)
-        print('File stored: ' + pickle_name + '.pickle')
-        print()
+                if parameters['use_gpu']:
+                    model.cuda()
+
+                print('Running with parameters:')
+                print(parameters)
+                e_losses, e_accs, e_aucs, e_mse, e_val_accs, e_val_aucs, e_val_mse = model.fit(train_dataset)
+
+                # ## Storing results in pickles
+                # 
+                # The results are stored in a dictionary with the following entries:
+                # - **parameters**: A dictionary of parameters for the given result
+                # - **losses**: The losses over time
+                # - **accs**: Accuracies over time for the training set
+                # - **aucs**: ROC AUC over time for the training set
+                # - **mse**: Mean Squared Error over time for the training set
+                # - **val_accs**: Accuracies over time for the validation set
+                # - **val_aucs**: ROC AUC over time for the validation set
+                # - **val_mse**: Mean Squared error over time for the validation set
+                
+                data_to_store = {
+                    'parameters': parameters,
+                    'losses': e_losses,
+                    'accs': e_accs,
+                    'aucs': e_aucs,
+                    'mse': e_mse,
+                    'val_accs': e_val_accs,
+                    'val_aucs': e_val_aucs,
+                    'val_mse': e_val_mse
+                }
+
+                pickle_name = 'results_' + str(layers) + '_' + str(h_dim) + '_' + str(dropout)
+                save_pickle(data_to_store, pickle_name)
+                print('File stored: ' + pickle_name + '.pickle')
+                print()
