@@ -36,4 +36,4 @@ The model used is described in the illustration below:
 
 ## License
 
-TODO
+MIT
