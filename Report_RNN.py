@@ -15,7 +15,7 @@ import torch.nn.functional as F
 import numpy as np
 import pandas as pd
 from tqdm import tqdm, tqdm_notebook
-from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.metrics import accuracy_score, roc_auc_score, mean_squared_error
 import random
 import pickle
 
@@ -143,7 +143,6 @@ class RNN(nn.Module):
                  bi,
                  use_gpu,
                  dropout,
-                 lr,
                  output_dim=1,
                  batch_size=1):
         super(RNN, self).__init__()
