@@ -74,13 +74,13 @@ parameters = {
     'dynamic_dim': train[9][0].shape[1],
     'fixed_dim': train[9][1].shape[0],
     'hidden_dim': 256,
-    'dropout': 0.25,
+    'dropout': 0.1,
     'n_layers': 3,
     'bidirectional': True,
     'use_gpu': True,
     'learning_rate': 1e-3,
     'epochs': 30,
-    'num_workers': 4
+    'num_workers': 8
 }
 
 
@@ -306,7 +306,7 @@ class RNN(nn.Module):
 for layers in [3]:
     parameters['n_layers'] = layers
     
-    for h_dim in [16, 32, 64, 128, 256, 512]:
+    for h_dim in [512]:
         parameters['hidden_dim'] = h_dim
         
         model = RNN(input_dim=parameters['dynamic_dim'],
@@ -347,3 +347,4 @@ for layers in [3]:
         pickle_name = 'results_' + str(h_dim) + '_' + str(layers)
         save_pickle(data_to_store, pickle_name)
         print('File stored: ' + pickle_name + '.pickle')
+        print()
