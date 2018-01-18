@@ -1,8 +1,12 @@
+
 # coding: utf-8
 
 # # ASSISTments Data Mining Competition 2017 - Report of RNN Model
 
 # ## Imports and constants
+
+# In[ ]:
+
 
 import pickle
 import torch
@@ -39,6 +43,7 @@ def save_pickle(dict_data, name):
     pickle.dump(dict_data, pickle_out)
     pickle_out.close()
 
+
 # ## Loading the training data
 # 
 # The training data is stored in pickles as a dictionary where the keys are student ids and and values are tuples of **(Sequence of dynamic features, array of fixed features, target)**:
@@ -47,8 +52,14 @@ def save_pickle(dict_data, name):
 # - **Fixed features**: Features that are unchanged through time. Ex: Average correctness, the school id or MCAS grade. Stored as a pandas Series.
 # - **target**: Either yes (1) or no (0) the student has chosen a carrer in STEM.
 
+# In[ ]:
+
+
 pickle_train = open(DATA_DIR + "student_train_logs.pickle","rb")
 train = pickle.load(pickle_train)
+
+train[9][0].head()
+
 
 # ### Parameters
 # 
@@ -59,7 +70,7 @@ train = pickle.load(pickle_train)
 # - **use_gpu** (bool): Use CUDA or not
 # - **num_workers** (int): Maximum number of threads on the CPU.
 # - **epochs** (int): Number of epochs
-#
+# 
 # ** Model (RNN) parameters**
 # - **dynamic_dim** (int): Number of dynamic features (that change at every action)
 # - **fixed_dim** (int): Number of the static features (that are unchanged at every action)
@@ -69,13 +80,16 @@ train = pickle.load(pickle_train)
 # - **dropout** (float in [0, 1]): Dropout of the RNN
 # - **learning_rate** (float in [0, 1]): Learning rate
 
+# In[ ]:
+
+
 parameters = {
     'validation_set_size': 30,
     'dynamic_dim': train[9][0].shape[1],
     'fixed_dim': train[9][1].shape[0],
     'hidden_dim': 32,
     'dropout': 0.1,
-    'n_layers': 3,
+    'n_layers': 3, 
     'bidirectional': True,
     'use_gpu': True,
     'learning_rate': 1e-3,
@@ -85,11 +99,15 @@ parameters = {
 
 
 # ## Creating the validation set
-#
+# 
 # We create the validation set by randomly selecting `validation_set_size` students from the total training set and discarding those students from the actual training set.
+
+# In[ ]:
+
 
 validation = {k:v for k, v in random.sample(train.items(), parameters['validation_set_size'])}
 train_truncated = { k : train[k] for k in set(train) - set(validation) }
+
 
 # ## Creating a Data Loader
 # 
@@ -97,6 +115,9 @@ train_truncated = { k : train[k] for k in set(train) - set(validation) }
 # 
 # With PyTorch, every DataLoader can be set a sampler that will define how the data is being sampled.
 # Here we do not define any sampler but it could be a good idea to create a random weighted sampler in order to balance.
+
+# In[ ]:
+
 
 class DataSet(Dataset):
     def __init__(self, sequences):
@@ -118,6 +139,9 @@ class DataSet(Dataset):
         return student_id, dynamic, fixed, target
 
 
+# In[ ]:
+
+
 train_dataset = DataSet(train_truncated)
 validation_dataset = DataSet(validation)
 
@@ -133,6 +157,9 @@ validation_dataset = DataSet(validation)
 # - **step**: A step in the training process.
 # - **evaluate_val**: Validation set results on the current model.
 # - **fit**: Complete training process.
+
+# In[ ]:
+
 
 class RNN(nn.Module):
     def __init__(self,
@@ -191,7 +218,7 @@ class RNN(nn.Module):
         self.zero_grad()                                                                                                           
         output = self.forward(dynamic, fixed)                                                                                                      
         loss = self.criterion(output, target.float())                                                                      
-        loss.backward()
+        loss.backward()                                                                                                                 
         self.optimizer.step()
         
         return loss.data[0], F.sigmoid(output)
@@ -204,7 +231,7 @@ class RNN(nn.Module):
         y_true = []
         
         self.eval()
-        for i, (_, actions, fixed, target) in enumerate(tqdm(loader, leave=False)):
+        for i, (_, actions, fixed, target) in enumerate(tqdm_notebook(loader, leave=False)):
             y_true.append(target.float())
             
             actions = actions.permute(1, 0, 2)
@@ -242,7 +269,7 @@ class RNN(nn.Module):
         e_val_aucs = []
         e_val_mse = []
         
-        e_bar = tqdm(range(parameters['epochs']))
+        e_bar = tqdm_notebook(range(parameters['epochs']))
         for e in e_bar:
             self.train()
             e_loss = 0
@@ -250,7 +277,7 @@ class RNN(nn.Module):
             targets = []
             val_preds = []
             
-            for i, (_, seq, fixed, label) in enumerate(tqdm(loader, leave=False)):
+            for i, (_, seq, fixed, label) in enumerate(tqdm_notebook(loader, leave=False)):
                 seq = seq.permute(1,0,2)
                 
                 if self.use_gpu:
@@ -316,54 +343,54 @@ class RNN(nn.Module):
 
 # In order to train our RNN, we use our previously defined DataLoader and try to minimize error. The optimization function chosen is **Adamax** and the loss function is **Binary Cross-Entropy with Logits**.
 
-for layers in [3]:
-    parameters['n_layers'] = layers
+# In[ ]:
+
+
+model = RNN(input_dim=parameters['dynamic_dim'],
+            hidden_dim=parameters['hidden_dim'],
+            fixed_dim=parameters['fixed_dim'],
+            n_layers=parameters['n_layers'],
+            bi=parameters['bidirectional'],
+            use_gpu=parameters['use_gpu'],
+            dropout=parameters['dropout'])
+
+if parameters['use_gpu']:
+    model.cuda()
     
-    for h_dim in [20, 24, 28, 32, 36, 40, 44]:
-        parameters['hidden_dim'] = h_dim
+model
 
-        for dropout in [0, 0.1, 0.2]:
-            parameters['dropout'] = dropout
 
-            model = RNN(input_dim=parameters['dynamic_dim'],
-                        hidden_dim=parameters['hidden_dim'],
-                        fixed_dim=parameters['fixed_dim'],
-                        n_layers=parameters['n_layers'],
-                        bi=parameters['bidirectional'],
-                        use_gpu=parameters['use_gpu'],
-                        dropout=parameters['dropout'])
+# In[ ]:
 
-            if parameters['use_gpu']:
-                model.cuda()
 
-            print('Running with parameters:')
-            print(parameters)
-            e_losses, e_accs, e_aucs, e_mse, e_val_accs, e_val_aucs, e_val_mse = model.fit(train_dataset)
+e_losses, e_accs, e_aucs, e_mse, e_val_accs, e_val_aucs, e_val_mse = model.fit(train_dataset)
 
-            # ## Storing results in pickles
-            # 
-            # The results are stored in a dictionary with the following entries:
-            # - **parameters**: A dictionary of parameters for the given result
-            # - **losses**: The losses over time
-            # - **accs**: Accuracies over time for the training set
-            # - **aucs**: ROC AUC over time for the training set
-            # - **mse**: Mean Squared Error over time for the training set
-            # - **val_accs**: Accuracies over time for the validation set
-            # - **val_aucs**: ROC AUC over time for the validation set
-            # - **val_mse**: Mean Squared error over time for the validation set
 
-            data_to_store = {
-                'parameters': parameters,
-                'losses': e_losses,
-                'accs': e_accs,
-                'aucs': e_aucs,
-                'mse': e_mse,
-                'val_accs': e_val_accs,
-                'val_aucs': e_val_aucs,
-                'val_mse': e_val_mse
-            }
+# ## Storing results in pickles
+# 
+# The results are stored in a dictionary with the following entries:
+# - **parameters**: A dictionary of parameters for the given result
+# - **losses**: The losses over time
+# - **accs**: Accuracies over time for the training set
+# - **aucs**: ROC AUC over time for the training set
+# - **mse**: Mean Squared Error over time for the trainings set
+# - **val_accs**: Accuracies over time for the validation set
+# - **val_aucs**: ROC AUC over time for the validation set
+# - **val_mse**: Mean Squared Error over time for the validation set
 
-            pickle_name = 'results_' + str(layers) + '_' + str(h_dim) + '_' + str(dropout)
-            save_pickle(data_to_store, pickle_name)
-            print('File stored: ' + pickle_name + '.pickle')
-            print()
+# In[ ]:
+
+
+data_to_store = {
+    'parameters': parameters,
+    'losses': e_losses,
+    'accs': e_accs,
+    'aucs': e_aucs,
+    'mse': e_mse,
+    'val_accs': e_val_accs,
+    'val_aucs': e_val_aucs,
+    'val_mse': e_val_mse
+}
+
+save_pickle(data_to_store, 'results_' + str(parameters['hidden_dim']) + '_' + str(parameters['n_layers']))
+
